@@ -1,0 +1,55 @@
+# ==============================================================================
+# Konfigurasi Model LLM sebagai RAGAS Evaluator (Eksperimen 2b)
+# Domain: Legal QA Maritim (SinkronAIR)
+# ==============================================================================
+
+experiment:
+  name: "ragas_llm_judge_comparison_2b"
+  domain: "maritim_law_indonesia"
+  metrics:
+    - faithfulness
+    - context_recall
+    - answer_correctness
+  agreement_threshold: 0.7
+
+target_models:
+  # --- Proprietary Models (OpenAI API) ---
+  gpt_5_4:
+    name: "gpt-5.4"
+    backend: "openai"
+    description: "Model frontier OpenAI rilis terbaru untuk benchmark akurasi tinggi"
+
+  gpt_4o_mini:
+    name: "gpt-4o-mini"
+    backend: "openai"
+    description: "Model ringan OpenAI yang efisien biaya namun kuat dalam penalaran"
+
+  # --- Open Weights Models (Ollama / Local Inference) ---
+  gemma_3_12b:
+    name: "gemma3:12b"
+    backend: "ollama"
+    num_ctx: 131072
+    description: "Model open-weights Google Gemma 3 12B"
+
+  gemma_4_12b:
+    name: "gemma4:e4b"
+    alias: "gemma4:12b"
+    backend: "ollama"
+    num_ctx: 131072
+    description: "Model open-weights Google Gemma 4 (evaluator ketat baseline)"
+
+  qwen_2_5_14b:
+    name: "qwen2.5:14b"
+    backend: "ollama"
+    num_ctx: 131072
+    description: "Model open-weights Alibaba Qwen 2.5 14B parameter"
+
+  qwen_2_5_32b:
+    name: "qwen2.5:32b"
+    backend: "ollama"
+    num_ctx: 131072
+    description: "Model open-weights Alibaba Qwen 2.5 32B parameter"
+
+embeddings:
+  backend: "hf"
+  model: "sentence-transformers/all-MiniLM-L6-v2"

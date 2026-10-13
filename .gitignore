@@ -1,0 +1,22 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Environments
+.env
+.venv
+env/
+venv/
+ENV/
+
+# Data & Large logs (keep raw dataset and sample results, ignore temporary caches)
+*.log
+.cache/
+logs/
+tmp/
+
+# OS and IDE files
+.DS_Store
+.idea/
+.vscode/
