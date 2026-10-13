@@ -24,12 +24,22 @@ import csv
 import logging
 import os
 import sys
+import typing as t
 from datetime import datetime
 from dotenv import load_dotenv
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT_DIR = os.path.abspath(os.path.join(SCRIPT_DIR, ".."))
 sys.path.insert(0, ROOT_DIR)
+
+# Hindari error field larger than field limit untuk konteks GraphRAG yang besar
+_max_field_size = sys.maxsize
+while True:
+    try:
+        csv.field_size_limit(_max_field_size)
+        break
+    except OverflowError:
+        _max_field_size //= 10
 
 load_dotenv(os.path.join(ROOT_DIR, ".env"))
 

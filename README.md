@@ -42,12 +42,20 @@ ragas-test/
 ├── configs/                           # Konfigurasi eksperimen
 │
 ├── data/
-│   ├── raw/                           # Dataset sumber skenario hukum MA
+│   ├── raw/                           # Dataset sumber skenario hukum MA (kunci jawaban rujukan)
 │   │   ├── Palayaran Fix.csv
 │   │   └── Perikanan Fix.csv
-│   ├── baseline_eval/                 # Hasil evaluasi pembanding yang sudah ada (Gemma 3, Gemma 4, GPT-4o-mini)
-│   └── results/                       # Tempat penyimpanan berkas output evaluasi & statistik
-│
+│   ├── qa_rag/                        # Berkas input QA siap uji (GraphRAG / MiniRAG & Naive RAG)
+│   │   ├── perikanan_graphrag_minirag_qa.csv  # Output sistem GraphRAG (kolom minirag & Context graf)
+│   │   ├── pelayaran_graphrag_minirag_qa.csv  # Output sistem GraphRAG
+│   │   ├── perikanan_naive_qa.csv             # Output baseline Naive RAG (kolom naiverag)
+│   │   └── pelayaran_naive_qa.csv             # Output baseline Naive RAG
+│   ├── baseline_eval/                 # Hasil evaluasi pembanding riwayat riset BRIN
+│   │   ├── perikanan_graphrag_eval_gemma4.csv
+│   │   ├── perikanan_eval_gemma4.csv
+│   │   ├── perikanan_eval_gemma3.csv
+│   │   └── perikanan_eval_gpt4omini.csv
+│   └── results/                       # Folder penyimpanan berkas output evaluasi & statistik baru
 ├── docs/
 │   └── LAPORAN_HASIL_EKSPERIMEN.md    # Template dokumen laporan akhir hasil & temuan
 │
