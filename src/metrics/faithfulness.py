@@ -70,7 +70,6 @@ class FaithfulnessExtractor(Faithfulness):
         try:
             raw_statements = await self._create_statements(s, callbacks=None)
         except Exception:
-            # Percobaan ulang tunggal untuk mengatasi transient API timeout/hiccup
             try:
                 raw_statements = await self._create_statements(s, callbacks=None)
             except Exception as e2:
@@ -78,22 +77,32 @@ class FaithfulnessExtractor(Faithfulness):
 
         self.statements = raw_statements
 
+        # Ekstrak list string statements murni untuk NLI
+        if hasattr(raw_statements, "statements"):
+            stmts_list = raw_statements.statements
+        elif isinstance(raw_statements, dict):
+            stmts_list = raw_statements.get("statements", [])
+        elif isinstance(raw_statements, list):
+            stmts_list = raw_statements
+        else:
+            stmts_list = []
+
         # Jika respons model tidak membuat klaim faktual, skor dianggap 1.0 (tidak ada halusinasi)
-        if not raw_statements:
+        if not stmts_list:
             self.verdicts = None
             return 1.0
 
         # Langkah 2: NLI Verifikasi terhadap konteks rujukan
         try:
-            raw_verdicts = await self._create_verdicts(s, raw_statements, callbacks=None)
+            raw_verdicts = await self._create_verdicts(s, stmts_list, callbacks=None)
         except Exception:
             try:
-                raw_verdicts = await self._create_verdicts(s, raw_statements, callbacks=None)
+                raw_verdicts = await self._create_verdicts(s, stmts_list, callbacks=None)
             except Exception as e2:
                 raise RuntimeError(f"Gagal mengekstrak verdicts: {e2}") from e2
 
         self.verdicts = raw_verdicts
-        return self._compute_score(raw_verdicts)
+        return float(self._compute_score(raw_verdicts))
 
     def get_last_results(self) -> dict:
         """Mengembalikan rincian data mentah statements dan verdicts evaluasi terakhir."""
@@ -111,17 +120,24 @@ class FaithfulnessExtractor(Faithfulness):
         verdicts_obj = results.get("verdicts")
         items = []
         if verdicts_obj is not None:
-            try:
-                for field_name, value in verdicts_obj:
-                    if field_name == "statements" and isinstance(value, list):
-                        for ans in value:
-                            items.append({
-                                "statement": getattr(ans, "statement", None),
-                                "verdict": getattr(ans, "verdict", None),
-                                "reason": getattr(ans, "reason", None),
-                            })
-            except TypeError:
-                pass
+            raw_list = []
+            if hasattr(verdicts_obj, "statements"):
+                raw_list = verdicts_obj.statements
+            elif isinstance(verdicts_obj, dict):
+                raw_list = verdicts_obj.get("statements", [])
+            elif isinstance(verdicts_obj, list):
+                raw_list = verdicts_obj
+
+            for ans in raw_list:
+                stmt = getattr(ans, "statement", None) if not isinstance(ans, dict) else ans.get("statement")
+                verdict = getattr(ans, "verdict", None) if not isinstance(ans, dict) else ans.get("verdict")
+                reason = getattr(ans, "reason", None) if not isinstance(ans, dict) else ans.get("reason")
+                if stmt is not None:
+                    items.append({
+                        "statement": stmt,
+                        "verdict": int(verdict) if verdict is not None else 0,
+                        "reason": reason or "",
+                    })
 
         explanation = " | ".join(
             f"[{'OK' if it['verdict'] else 'FAIL'}] {it['statement']}: {it['reason']}"

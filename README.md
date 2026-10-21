@@ -1,40 +1,45 @@
-# ⚖️ RAGAS Legal Evaluator — Eksperimen 2(b)
+# [DOKUMEN] RAGAS Legal Evaluator — Eksperimen 2(b)
 
 > **Riset Pemagangan BRIN 2026:** Membandingkan dan Mengevaluasi Varian serta Parameter Large Language Model sebagai RAGAS Evaluator pada Domain Hukum Maritim (*SinkronAIR*).
 
 ---
 
-## 📌 Daftar Isi
-1. [Latar Belakang & Tujuan](#-latar-belakang--tujuan)
-2. [Struktur Repositori](#-struktur-repositori)
-3. [Model LLM Target](#-model-llm-target)
-4. [Langkah Instalasi & Setup Lingkungan](#-langkah-instalasi--setup-lingkungan)
-5. [Panduan Eksekusi Evaluasi (Step-by-Step)](#-panduan-eksekusi-evaluasi-step-by-step)
-   * [A. Menggunakan Backend OpenAI (GPT-4o-mini / GPT-4o)](#a-menggunakan-backend-openai-gpt-4o-mini--gpt-4o)
-   * [B. Menggunakan Backend Ollama (Gemma 3:12b, Gemma 4, Qwen 2.5)](#b-menggunakan-backend-ollama-gemma-312b-gemma-4-qwen-25)
-6. [Perekaman Log Eksekusi (Bukti Eksperimen)](#-perekaman-log-eksekusi-bukti-eksperimen)
-7. [Panduan Analisis Statistik Korelasi & Agreement](#-panduan-analisis-statistik-korelasi--agreement)
-8. [Penyusunan Laporan Akhir Eksperimen](#-penyusunan-laporan-akhir-eksperimen)
+## [DAFTAR ISI]
+1. [Latar Belakang & Tujuan](#latar-belakang--tujuan)
+2. [Struktur Repositori](#struktur-repositori)
+3. [Daftar 5 Model LLM Target](#daftar-5-model-llm-target)
+4. [Langkah Instalasi & Setup Lingkungan](#langkah-instalasi--setup-lingkungan)
+5. [Sintaks Eksekusi Lengkap Tiap Model](#sintaks-eksekusi-lengkap-tiap-model)
+   * [1. Model Qwen 2.5 (14B) - Ollama](#1-model-qwen-25-14b---ollama)
+   * [2. Model Gemma 3 (12B) - Ollama](#2-model-gemma-3-12b---ollama)
+   * [3. Model Gemma 4 (12B) - Ollama](#3-model-gemma-4-12b---ollama)
+   * [4. Model GPT-4o-mini - OpenAI](#4-model-gpt-4o-mini---openai)
+   * [5. Model GPT-5.4 - OpenAI](#5-model-gpt-54---openai)
+6. [Fitur Auto-Logging & Tampilan Reasoning](#fitur-auto-logging--tampilan-reasoning)
+7. [Panduan Analisis Statistik Korelasi & Agreement](#panduan-analisis-statistik-korelasi--agreement)
+8. [Program Benchmarking & Rekomendasi Model Terbaik](#program-benchmarking--rekomendasi-model-terbaik)
+9. [Penyusunan Laporan Akhir Eksperimen](#penyusunan-laporan-akhir-eksperimen)
 
 ---
 
-## 🎯 Latar Belakang & Tujuan
+## Latar Belakang & Tujuan
 
 Dalam evaluasi framework Retrieval-Augmented Generation (RAG) kasus hukum maritim (*SinkronAIR*), penilaian kualitas sistem (*LLM-as-a-judge*) menggunakan framework RAGAS sangat dipengaruhi oleh model evaluator yang dipilih.
 
 **Tujuan Eksperimen 2(b):**
-1. **Ekstraksi Output Reasoning:** Memastikan evaluator RAGAS tidak hanya memberikan skor numerik ($0.0 - 1.0$), tetapi **wajib menyertakan teks alasan / justifikasi logis** di balik nilai tersebut.
-2. **Alignment Reasoning:** Memeriksa kesesuaian dasar pertimbangan hukum model terhadap kaidah hukum laut dan bebas dari kritik palsu (*hallucinated critique*).
+1. **Ekstraksi Output Reasoning:** Memastikan evaluator RAGAS tidak hanya memberikan skor numerik (0.0 - 1.0), tetapi **wajib menyertakan teks alasan / justifikasi logis (`[OK|FAIL]`, `[TP|FP|FN]`)** di balik nilai tersebut.
+2. **Alignment Reasoning:** Memeriksa kesesuaian dasar pertimbangan hukum model terhadap kaidah hukum laut (UU No. 45 Tahun 2009) dan bebas dari kritik palsu (*hallucinated critique*).
 3. **Konsistensi Skor (Korelasi):** Mengukur korelasi linear (**Pearson $r$**) dan konsistensi pemeringkatan kualitas (**Spearman $\rho$**) antar-model penilai.
 4. **Tingkat Kesepakatan (Agreement Score):** Mengukur konsensus kategorikal antar-penilai dengan memperhitungkan faktor kebetulan melalui **Cohen's Kappa ($\kappa$)**, **Fleiss' Kappa**, dan **Intraclass Correlation Coefficient (ICC)**.
 
 ---
 
-## 📁 Struktur Repositori
+## Struktur Repositori
 
 ```text
-ragas-test/
+ragas-legal-evaluator/
 ├── .env.example                       # Template konfigurasi environment (API Key, host)
+├── .env                               # Kredensial aktif (OpenAI API Key, Ollama Host)
 ├── .gitignore                         # Konfigurasi file yang diabaikan Git
 ├── requirements.txt                   # Dependensi library Python
 ├── README.md                          # Panduan teknis lengkap repositori ini
@@ -42,86 +47,78 @@ ragas-test/
 ├── configs/                           # Konfigurasi eksperimen
 │
 ├── data/
-│   ├── raw/                           # Dataset sumber skenario hukum MA (kunci jawaban rujukan)
-│   │   ├── Palayaran Fix.csv
-│   │   └── Perikanan Fix.csv
-│   ├── qa_rag/                        # Berkas input QA siap uji (GraphRAG / MiniRAG & Naive RAG)
-│   │   ├── perikanan_graphrag_minirag_qa.csv  # Output sistem GraphRAG (kolom minirag & Context graf)
-│   │   ├── pelayaran_graphrag_minirag_qa.csv  # Output sistem GraphRAG
-│   │   ├── perikanan_naive_qa.csv             # Output baseline Naive RAG (kolom naiverag)
-│   │   └── pelayaran_naive_qa.csv             # Output baseline Naive RAG
-│   ├── baseline_eval/                 # Hasil evaluasi pembanding riwayat riset BRIN
-│   │   ├── perikanan_graphrag_eval_gemma4.csv
-│   │   ├── perikanan_eval_gemma4.csv
-│   │   ├── perikanan_eval_gemma3.csv
-│   │   └── perikanan_eval_gpt4omini.csv
-│   └── results/                       # Folder penyimpanan berkas output evaluasi & statistik baru
+│   ├── raw/                           # Dataset sumber skenario hukum MA
+│   ├── qa_rag/                        # Berkas input QA siap uji (100 baris kasus perikanan & pelayaran)
+│   │   ├── perikanan_naive_qa.csv     # Input utama evaluasi Naive RAG (100 baris)
+│   │   ├── pelayaran_naive_qa.csv     # Input Naive RAG pelayaran
+│   │   ├── perikanan_graphrag_minirag_qa.csv
+│   │   └── pelayaran_graphrag_minirag_qa.csv
+│   ├── baseline_eval_backup/          # Arsip baseline evaluasi terdahulu BRIN
+│   └── results/                       # Folder output hasil evaluasi CSV, metadata JSON, & statistik
+│
 ├── docs/
 │   └── LAPORAN_HASIL_EKSPERIMEN.md    # Template dokumen laporan akhir hasil & temuan
 │
-├── logs/                              # Tempat penyimpanan file log bukti eksekusi (.log)
+├── logs/                              # Berkas log audit bukti eksekusi (.log) per run
 │
 ├── src/
 │   ├── metrics/                       # Extractor kustom metrik RAGAS dengan penalaran eksplisit
-│   │   ├── faithfulness.py            # Evaluasi kesetiaan terhadap konteks + alasan
-│   │   ├── context_recall.py          # Evaluasi kelengkapan pasal + atribusi
+│   │   ├── faithfulness.py            # Evaluasi kesetiaan terhadap konteks + alasan [OK|FAIL]
+│   │   ├── context_recall.py          # Evaluasi kelengkapan pasal + atribusi [OK|FAIL]
 │   │   └── answer_correctness.py      # Evaluasi akurasi jawaban (TP/FP/FN + kemiripan semantik)
 │   ├── evaluators/                    # Pipeline & factory evaluator
 │   │   ├── llm_factory.py             # Multi-backend wrapper (Ollama, OpenAI, vLLM)
 │   │   └── runner.py                  # Batch runner dengan resume checkpoint & streaming CSV
-│   └── analysis/                      # Parameter analisis evaluasi
-│       ├── correlation.py             # Perhitungan Pearson r & Spearman rho
-│       ├── agreement.py               # Perhitungan Cohen's Kappa, Fleiss' Kappa, dan ICC
-│       └── alignment.py               # Purposive sampling kasus variansi tinggi & analisis kualitatif
+│   ├── analysis/                      # Parameter analisis evaluasi
+│   │   ├── correlation.py             # Perhitungan Pearson r & Spearman rho
+│   │   ├── agreement.py               # Perhitungan Cohen's Kappa, Fleiss' Kappa, dan ICC
+│   │   ├── alignment.py               # Purposive sampling kasus variansi tinggi & analisis kualitatif
+│   │   └── benchmarking.py            # Perhitungan bias, MAE, composite score, & narasi rekomendasi
+│   └── utils/
+│       └── logger.py                  # Logger ANSI berwarna untuk terminal & plain-text untuk file
 │
 └── scripts/
     ├── run_eval.py                    # CLI runner utama evaluasi
-    ├── run_eval_ollama.sh             # Runner shell otomatis untuk Ollama
-    ├── run_eval_openai.sh             # Runner shell otomatis untuk OpenAI
-    └── run_analysis.py                # CLI runner analisis statistik & matriks korelasi
+    ├── run_analysis.py                # CLI runner analisis statistik & matriks korelasi
+    └── benchmark_models.py            # CLI runner benchmarking komparatif terhadap model acuan
 ```
 
 ---
 
-## 🤖 Model LLM Target
+## Daftar 5 Model LLM Target
 
-| Kategori | Model Target | Backend / Parameter CLI | Keterangan |
-| :--- | :--- | :--- | :--- |
-| **Proprietary / API** | **GPT-5.4** | `--backend openai --model gpt-5.4` | Frontier model OpenAI untuk evaluasi akurasi & penalaran tinggi |
-| **Proprietary / API** | **GPT-4o-mini** | `--backend openai --model gpt-4o-mini` | Model efisien OpenAI untuk pembanding biaya vs kualitas |
-| **Open Weights** | **Gemma 3:12b** | `--backend ollama --model gemma3:12b` | Model open-weights Google Gemma 3 (12B) via Ollama |
-| **Open Weights** | **Gemma 4:12b** | `--backend ollama --model gemma4:e4b` | Evaluator ketat baseline BRIN (12B) via Ollama |
-| **Open Weights** | **Qwen Series** | `--backend ollama --model qwen2.5:14b` / `32b` | Model open-weights Alibaba Qwen 2.5 (14B / 32B) |
+| No | Model Target | Backend | Parameter CLI | Peran / Keterangan |
+| :-: | :--- | :--- | :--- | :--- |
+| 1 | **Qwen 2.5 (14B)** | Ollama | `--backend ollama --model qwen2.5:14b` | Open-weights performa tinggi untuk penalaran domain khusus |
+| 2 | **Gemma 3 (12B)** | Ollama | `--backend ollama --model gemma3:12b` | Open-weights Google generasi terbaru (12B) |
+| 3 | **Gemma 4 (12B)** | Ollama | `--backend ollama --model gemma4:e4b` | Baseline evaluator ketat BRIN terdahulu |
+| 4 | **GPT-4o-mini** | OpenAI | `--backend openai --model gpt-4o-mini` | Model efisien OpenAI untuk pembanding *cost-to-performance* |
+| 5 | **GPT-5.4** | OpenAI | `--backend openai --model gpt-5.4` | Frontier model OpenAI sebagai *Gold Standard Reference* |
 
 ---
 
-## 🛠️ Langkah Instalasi & Setup Lingkungan
+## Langkah Instalasi & Setup Lingkungan
 
-### 1. Buat Virtual Environment (Python 3.10+)
-Disarankan menggunakan `conda` atau `venv` agar tidak mengganggu paket sistem:
-
+### 1. Lingkungan Python
+Repositori ini menggunakan Python 3.12+ dengan virtual environment di `.venv`:
 ```bash
-# Opsi A: Menggunakan Conda (Direkomendasikan jika di cluster GPU)
-conda create -n ragas-eval python=3.10 -y
-conda activate ragas-eval
-
-# Opsi B: Menggunakan venv bawaan
-python3 -m venv .venv
+# Aktifkan virtual environment yang sudah terkonfigurasi
 source .venv/bin/activate
 ```
 
-### 2. Instal Dependensi
+### 2. Service Ollama (Lokal GPU)
+Pastikan server Ollama aktif pada host `127.0.0.1:11434` dan model-model lokal sudah ditarik:
 ```bash
-pip install --upgrade pip
-pip install -r requirements.txt
+ollama serve &
+
+# Tarik model yang dibutuhkan (jika belum ada)
+ollama pull qwen2.5:14b
+ollama pull gemma3:12b
+ollama pull gemma4:e4b
 ```
 
-### 3. Konfigurasi Environment Variable
-Salin template konfigurasi `.env.example` menjadi `.env`:
-```bash
-cp .env.example .env
-```
-Buka file `.env` dan masukkan kredensial yang relevan:
+### 3. Konfigurasi Kredensial (.env)
+Pastikan file `.env` di direktori utama telah berisi kredensial yang valid:
 ```ini
 OPENAI_API_KEY=sk-proj-xxxxxxxxxxxxxxxxxxxx
 OLLAMA_HOST=http://127.0.0.1:11434
@@ -129,144 +126,125 @@ OLLAMA_HOST=http://127.0.0.1:11434
 
 ---
 
-## 🚀 Panduan Eksekusi Evaluasi (Step-by-Step)
+## Sintaks Eksekusi Lengkap Tiap Model
 
-### A. Menggunakan Backend OpenAI (GPT-4o-mini / GPT-4o)
+Dataset input standar untuk Tugas 2(b) adalah **`data/qa_rag/perikanan_naive_qa.csv`** (100 baris pertanyaan dan jawaban hukum maritim).
 
-Untuk mengevaluasi dataset `data/raw/Perikanan Fix.csv`:
+### 1. Model Qwen 2.5 (14B) - Ollama
 ```bash
-python scripts/run_eval.py \
-    --input "data/raw/Perikanan Fix.csv" \
+.venv/bin/python scripts/run_eval.py \
+    --input "data/qa_rag/perikanan_naive_qa.csv" \
+    --output "data/results/perikanan_eval_qwen25_14b.csv" \
+    --backend ollama \
+    --model "qwen2.5:14b"
+```
+
+### 2. Model Gemma 3 (12B) - Ollama
+```bash
+.venv/bin/python scripts/run_eval.py \
+    --input "data/qa_rag/perikanan_naive_qa.csv" \
+    --output "data/results/perikanan_eval_gemma3.csv" \
+    --backend ollama \
+    --model "gemma3:12b"
+```
+
+### 3. Model Gemma 4 (12B) - Ollama
+```bash
+.venv/bin/python scripts/run_eval.py \
+    --input "data/qa_rag/perikanan_naive_qa.csv" \
+    --output "data/results/perikanan_eval_gemma4.csv" \
+    --backend ollama \
+    --model "gemma4:e4b"
+```
+
+### 4. Model GPT-4o-mini - OpenAI
+```bash
+.venv/bin/python scripts/run_eval.py \
+    --input "data/qa_rag/perikanan_naive_qa.csv" \
     --output "data/results/perikanan_eval_gpt4omini.csv" \
     --backend openai \
-    --model gpt-4o-mini \
-    --embedding_backend hf
+    --model "gpt-4o-mini"
 ```
 
-Atau menggunakan shell runner singkat:
+### 5. Model GPT-5.4 - OpenAI
 ```bash
-bash scripts/run_eval_openai.sh "data/raw/Perikanan Fix.csv" "gpt-4o-mini" "data/results/perikanan_eval_gpt4omini.csv"
+.venv/bin/python scripts/run_eval.py \
+    --input "data/qa_rag/perikanan_naive_qa.csv" \
+    --output "data/results/perikanan_eval_gpt54.csv" \
+    --backend openai \
+    --model "gpt-5.4"
 ```
 
-### B. Menggunakan Backend Ollama (Gemma 3:12b, Gemma 4, Qwen 2.5)
-
-Pastikan Ollama server sudah berjalan:
-```bash
-ollama serve &
-# Pastikan model sudah ditarik
-ollama pull gemma3:12b
-ollama pull qwen2.5:14b
-```
-
-Jalankan evaluasi:
-```bash
-python scripts/run_eval.py \
-    --input "data/raw/Perikanan Fix.csv" \
-    --output "data/results/perikanan_eval_gemma3.csv" \
-    --backend ollama \
-    --model gemma3:12b \
-    --num_ctx 131072 \
-    --embedding_backend hf
-```
-
-Atau menggunakan shell runner singkat:
-```bash
-bash scripts/run_eval_ollama.sh "data/raw/Perikanan Fix.csv" "gemma3:12b" "data/results/perikanan_eval_gemma3.csv"
-```
-
-> **Fitur Resume Checkpoint:** Jika koneksi atau proses terputus di tengah jalan, Anda cukup menjalankan kembali perintah yang sama. Script otomatis mendeteksi baris yang telah selesai dievaluasi dan melanjutkan dari baris berikutnya tanpa menimpa data lama.
+> **Fitur Resume Checkpoint:** Jika proses terhenti di tengah jalan (misal timeout atau interupsi), jalankan kembali perintah yang sama. Sistem secara otomatis mendeteksi baris yang sudah tersimpan di file output CSV dan melanjutkan sisa baris yang belum dievaluasi.
 
 ---
 
-## 📝 Perekaman Log Eksekusi (Bukti Eksperimen)
+## Fitur Auto-Logging & Tampilan Reasoning
 
-Untuk kebutuhan bukti pelaporan magang riset (audit trail), seluruh keluaran terminal saat menjalankan evaluasi wajib direkam ke dalam file `.log`.
-
-Gunakan perintah `tee` sehingga output tetap terlihat di terminal sekaligus tersimpan rapi:
-
-```bash
-mkdir -p logs
-
-# Contoh eksekusi dengan pencatatan log real-time:
-python scripts/run_eval.py \
-    --input "data/raw/Perikanan Fix.csv" \
-    --output "data/results/perikanan_eval_gemma3.csv" \
-    --backend ollama \
-    --model gemma3:12b \
-    2>&1 | tee logs/eval_gemma3_$(date +%Y%m%d_%H%M%S).log
-```
-
-Jika dijalankan di latar belakang (*background job* di server/cluster):
-```bash
-nohup python scripts/run_eval.py \
-    --input "data/raw/Perikanan Fix.csv" \
-    --output "data/results/perikanan_eval_gemma3.csv" \
-    --backend ollama \
-    --model gemma3:12b \
-    > logs/eval_gemma3_nohup.log 2>&1 &
-```
+Setiap eksekusi `run_eval.py` otomatis mencatat dua luaran log:
+1. **Terminal Console:** Menampilkan log berwarna ANSI secara real-time yang menyajikan skor numerik beserta teks justifikasi penalaran (`[OK]`, `[FAIL]`, `[TP]`, `[FP]`, `[FN]`) tanpa emoticon.
+2. **Berkas Audit Trail:** Otomatis disimpan ke folder `logs/eval_<model>_<timestamp>.log` dalam bentuk teks polos bersih tanpa kode warna, siap digunakan sebagai bukti eksperimen riset.
+3. **Metadata JSON Bukti Run:** Disimpan di samping file CSV hasil (`<output_csv>.meta.json`) yang memuat rekap durasi, jumlah baris, parameter run, dan skor rata-rata.
 
 ---
 
-## 📊 Panduan Analisis Statistik Korelasi & Agreement
+## Panduan Analisis Statistik Korelasi & Agreement
 
-Setelah seluruh varian model selesai dievaluasi dan file CSV terkumpul di `data/results/` (atau menggunakan baseline pembanding di `data/baseline_eval/`), jalankan skrip analisis komparatif berikut:
+Setelah kelima model selesai dievaluasi dan file CSV terkumpul di folder `data/results/`, jalankan skrip analisis komparatif berikut:
 
 ```bash
-python scripts/run_analysis.py \
+.venv/bin/python scripts/run_analysis.py \
     --input_files \
-        data/baseline_eval/perikanan_eval_gemma4.csv \
-        data/baseline_eval/perikanan_eval_gemma3.csv \
-        data/baseline_eval/perikanan_eval_gpt4omini.csv \
-    --model_names gemma4 gemma3 gpt4omini \
+        data/results/perikanan_eval_gpt54.csv \
+        data/results/perikanan_eval_gpt4omini.csv \
+        data/results/perikanan_eval_qwen25_14b.csv \
+        data/results/perikanan_eval_gemma3.csv \
+        data/results/perikanan_eval_gemma4.csv \
+    --model_names gpt54 gpt4omini qwen25 gemma3 gemma4 \
     --threshold 0.7 \
     --output_dir data/results/statistical_summary/
 ```
 
-### Luaran yang Dihasilkan Otomatis:
+### Luaran Analisis:
 1. **Matriks Korelasi Linear (Pearson $r$):** Disimpan di `pearson_<metric>.csv`.
 2. **Matriks Konsistensi Peringkat (Spearman $\rho$):** Disimpan di `spearman_<metric>.csv`.
 3. **Tingkat Kesepakatan Antar-Pasangan (Cohen's Kappa $\kappa$):** Disimpan di `cohen_kappa_<metric>.csv`.
-4. **Kesepakatan Multi-Model Serentak (Fleiss' Kappa):** Ditampilkan di terminal & log.
-5. **Reliabilitas Kontinu Antar-Penilai (Intraclass Correlation / ICC):** Ditampilkan di terminal & log.
-6. **Sampel Kasus Discrepancy Tertinggi (Alignment Sampling):** Disimpan di `high_variance_<metric>.csv` untuk bahan analisis kualitatif.
+4. **Kesepakatan Multi-Model Serentak (Fleiss' Kappa):** Mengukur reliabilitas 5 rater sekaligus.
+5. **Reliabilitas Kontinu (Intraclass Correlation / ICC):** Dihitung menggunakan model ICC(2,1).
+6. **Discrepancy Reasoning Audit (Alignment Sampling):** Disimpan di `high_variance_<metric>.csv` untuk membandingkan secara langsung teks reasoning pada kasus-kasus dengan deviasi penilaian terbesar antar-model.
 
 ---
 
-## 🏆 Program Benchmarking & Rekomendasi Model Terbaik
+## Program Benchmarking & Rekomendasi Model Terbaik
 
-Program khusus [`scripts/benchmark_models.py`](scripts/benchmark_models.py) digunakan untuk membandingkan model-model kandidat secara langsung terhadap **satu model acuan (Gold Standard Reference Model)**, menghitung deviasi/bias, dan **menyusun narasi deskripsi alasan ilmiah mengapa model tertentu paling direkomendasikan**:
+Untuk membandingkan performa model-model kandidat terhadap satu model acuan (*Gold Standard Reference*, misal **GPT-5.4**), gunakan script `benchmark_models.py`:
 
 ```bash
-python scripts/benchmark_models.py \
+.venv/bin/python scripts/benchmark_models.py \
     --input_files \
-        data/baseline_eval/perikanan_eval_gpt4omini.csv \
-        data/baseline_eval/perikanan_eval_gemma3.csv \
-        data/baseline_eval/perikanan_eval_gemma4.csv \
-    --model_names gpt4omini gemma3 gemma4 \
-    --reference_model gpt4omini \
+        data/results/perikanan_eval_gpt54.csv \
+        data/results/perikanan_eval_gpt4omini.csv \
+        data/results/perikanan_eval_qwen25_14b.csv \
+        data/results/perikanan_eval_gemma3.csv \
+        data/results/perikanan_eval_gemma4.csv \
+    --model_names gpt54 gpt4omini qwen25 gemma3 gemma4 \
+    --reference_model gpt54 \
     --threshold 0.7 \
     --output_dir data/results/benchmark_summary/
 ```
 
-### Parameter yang Dihitung terhadap Model Acuan:
-* **Mean Bias ($ME$):** Mendeteksi apakah model cenderung *over-scoring* (terlalu longgar/murah nilai) atau *under-scoring* (terlalu kaku/ketat).
-* **Mean Absolute Error ($MAE$):** Rata-rata deviasi absolut terhadap acuan.
+### Parameter yang Dihitung:
+* **Mean Bias ($ME$):** Mendeteksi kecenderungan *over-scoring* (terlalu longgar) atau *under-scoring* (terlalu kaku/ketat).
+* **Mean Absolute Error ($MAE$):** Rata-rata selisih absolut terhadap model acuan.
 * **Korelasi Linear & Ranking ($r$ & $\rho$):** Keselarasan urutan kualitas jawaban.
-* **Tingkat Kesepakatan ($\kappa$ Cohen's Kappa):** Konsensus kelulusan biner.
-* **Composite Alignment Score (0–100):** Skor agregat gabungan terbobot.
-* **Sintesis Narasi Otomatis:** Menghasilkan dokumen laporan Markdown lengkap di `data/results/benchmark_summary/benchmark_recommendation_report.md` yang merangkum alasan ilmiah keunggulan model terbaik.
+* **Cohen's Kappa ($\kappa$):** Konsensus biner kelulusan pada ambang batas $\ge 0.7$.
+* **Composite Alignment Score (0–100):** Skor gabungan terbobot objektif.
+* **Laporan Markdown Otomatis:** Disimpan di `data/results/benchmark_summary/benchmark_recommendation_report.md` lengkap dengan narasi keunggulan model terbaik.
 
 ---
 
-## 📑 Penyusunan Laporan Akhir Eksperimen
+## Penyusunan Laporan Akhir Eksperimen
 
-Hasil analisis statistik dan temuan kualitatif dapat dituangkan langsung ke dalam dokumen template yang telah disediakan:
+Hasil analisis statistik, tabel matriks, dan kutipan teks penalaran (*reasoning*) dapat dituangkan langsung ke template laporan riset:
 
-👉 **[`docs/LAPORAN_HASIL_EKSPERIMEN.md`](docs/LAPORAN_HASIL_EKSPERIMEN.md)**
-
-Format ini memuat:
-* Tabel perbandingan skor metrik antar model
-* Penjelasan korelasi dan agreement reliability
-* Bukti kutipan teks reasoning pada kasus-kasus divergensi/disagreement tertinggi
-* Rekomendasi model evaluator yang paling objektif untuk sistem hukum maritim *SinkronAIR*.
+[LAPORAN HASIL EKSPERIMEN](docs/LAPORAN_HASIL_EKSPERIMEN.md)

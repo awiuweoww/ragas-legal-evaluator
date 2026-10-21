@@ -85,7 +85,7 @@ def main():
     metrics = ["faithfulness_score", "context_recall_score", "answer_correctness_score"]
 
     log_print(f"\n=======================================================")
-    log_print(f"📊 EKSEKUSI ANALISIS STATISTIK EVALUATOR RAGAS (Tugas 2b)")
+    log_print(f"[ANALISIS] EKSEKUSI ANALISIS STATISTIK EVALUATOR RAGAS (Tugas 2b)")
     log_print(f"Model Penilai   : {args.model_names}")
     log_print(f"Threshold Kappa : >= {args.threshold}")
     log_print(f"Berkas Log Bukti: {analysis_log_path}")
@@ -115,7 +115,7 @@ def main():
 
     for metric in metrics:
         metric_label = metric.replace("_score", "").replace("_", " ").title()
-        log_print(f"\n▶ METRIK: {metric_label}")
+        log_print(f"\n[METRIK] METRIK: {metric_label}")
         log_print("-" * 50)
 
         score_cols = [f"{m}_{metric}" for m in args.model_names if f"{m}_{metric}" in base_df.columns]
@@ -161,11 +161,32 @@ def main():
         icc_res = calculate_icc(base_df, score_cols)
         log_print(f"[5] Intraclass Correlation Coefficient (ICC): {icc_res['icc']:.4f} (Metode: {icc_res['method']})")
 
-        # 5. Parameter 1: Alignment Sampling (High Variance Cases)
+        # 5. Parameter 1: Alignment Sampling & Output Reasoning Comparison
         high_var = find_high_variance_cases(base_df, score_cols, top_n=5)
-        out_cases = high_var[["query_id", "query_text", "score_std"] + score_cols]
+        reason_cols = [f"{m}_{metric.replace('_score', '_reasoning')}" for m in args.model_names if f"{m}_{metric.replace('_score', '_reasoning')}" in base_df.columns]
+        
+        cols_to_save = ["query_id", "query_text", "ground_truth", "score_std"] + score_cols + reason_cols
+        available_cols = [c for c in cols_to_save if c in high_var.columns]
+        out_cases = high_var[available_cols]
         out_cases.to_csv(os.path.join(args.output_dir, f"high_variance_{metric}.csv"), index=False)
-        log_print(f"\n[6] 5 Kasus Variansi/Disagreement Tertinggi disimpan di: high_variance_{metric}.csv")
+
+        log_print(f"\n[6] [AUDIT REASONING] Perbandingan Reasoning Kasus Discrepancy Tertinggi ({metric_label}):")
+        log_print("=" * 70)
+        for rank, (_, row) in enumerate(high_var.head(3).iterrows(), 1):
+            log_print(f"\n[KASUS #{rank}] [ID: {row.get('query_id')}] (Std Dev: {row.get('score_std', 0):.4f})")
+            log_print(f"Pertanyaan   : {row.get('query_text')}")
+            gt = str(row.get('ground_truth', ''))
+            if gt and len(gt) > 150:
+                gt = gt[:150] + "..."
+            log_print(f"Ground Truth : {gt}")
+            log_print("-" * 50)
+            for m in args.model_names:
+                m_score = row.get(f"{m}_{metric}", "N/A")
+                m_reason = row.get(f"{m}_{metric.replace('_score', '_reasoning')}", "Tidak ada teks reasoning")
+                log_print(f"  - Model {m.upper()} (Skor: {m_score}):")
+                log_print(f"    Reasoning: {m_reason}")
+        log_print("=" * 70)
+        log_print(f"  * Detail lengkap seluruh 5 kasus tersimpan di: high_variance_{metric}.csv")
 
     log_print(f"\nSeluruh ringkasan tabel berhasil disimpan di direktori: {args.output_dir}\n")
     log_fp.close()

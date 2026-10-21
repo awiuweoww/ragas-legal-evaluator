@@ -85,7 +85,7 @@ def main():
         log_fp.flush()
 
     log_print("==================================================================")
-    log_print(f"🎯 BENCHMARKING MULTI-MODEL RAGAS EVALUATOR (TUGAS 2b)")
+    log_print(f"[BENCHMARK] BENCHMARKING MULTI-MODEL RAGAS EVALUATOR (TUGAS 2b)")
     log_print(f"Model Referensi Acuan : {args.reference_model} (Gold Standard / Anchor)")
     log_print(f"Model Kandidat Diuji  : {[m for m in args.model_names if m != args.reference_model]}")
     log_print(f"Threshold Kappa       : >= {args.threshold}")
@@ -121,12 +121,12 @@ def main():
     all_metric_rankings = {}
     full_markdown_reports = []
 
-    full_markdown_reports.append(f"# 📊 Laporan Benchmarking Model Evaluator RAGAS")
+    full_markdown_reports.append(f"# [LAPORAN] Laporan Benchmarking Model Evaluator RAGAS")
     full_markdown_reports.append(f"**Model Referensi Acuan (Anchor / Gold Standard):** `{args.reference_model}`\n")
 
     for metric in metrics:
         metric_label = metric.replace("_score", "").replace("_", " ").title()
-        log_print(f"\n▶ EVALUASI KOMPARATIF TERHADAP METRIK: {metric_label}")
+        log_print(f"\n[METRIK] EVALUASI KOMPARATIF TERHADAP METRIK: {metric_label}")
         log_print("-" * 65)
 
         benchmark_items = []
@@ -154,6 +154,41 @@ def main():
         log_print(ranked_df[display_cols].to_string(index=False))
         log_print("\n" + narrative + "\n")
 
+        # Tampilkan perbandingan teks reasoning pada sampel deviasi tertinggi
+        ref_metric_col = f"{args.reference_model}_{metric}"
+        ref_reason_col = f"{args.reference_model}_{metric.replace('_score', '_reasoning')}"
+        
+        reasoning_snippets = []
+        reasoning_snippets.append(f"\n### [AUDIT REASONING] Perbandingan Teks Reasoning pada Kasus Deviasi Tertinggi ({metric_label}):")
+        
+        for cand in candidate_models:
+            cand_metric_col = f"{cand}_{metric}"
+            cand_reason_col = f"{cand}_{metric.replace('_score', '_reasoning')}"
+            if cand_metric_col in base_df.columns and ref_metric_col in base_df.columns:
+                valid_diff = (base_df[cand_metric_col].astype(float) - base_df[ref_metric_col].astype(float)).abs()
+                top_diff_indices = valid_diff.sort_values(ascending=False).head(2).index
+                
+                reasoning_snippets.append(f"\n**Model `{cand}` vs Acuan `{args.reference_model}`:**")
+                for idx in top_diff_indices:
+                    row = base_df.loc[idx]
+                    qid = row.get("query_id", "N/A")
+                    qtext = row.get("query_text", "N/A")
+                    ref_s = row.get(ref_metric_col, "N/A")
+                    ref_r = row.get(ref_reason_col, "-")
+                    cand_s = row.get(cand_metric_col, "N/A")
+                    cand_r = row.get(cand_reason_col, "-")
+                    diff_val = valid_diff.loc[idx]
+                    
+                    reasoning_snippets.append(
+                        f"- **Kasus `{qid}`** (Selisih Skor: {diff_val:.4f}):\n"
+                        f"  * Pertanyaan: *\"{qtext}\"*\n"
+                        f"  * `{args.reference_model}` (Skor: {ref_s}): `{ref_r}`\n"
+                        f"  * `{cand}` (Skor: {cand_s}): `{cand_r}`"
+                    )
+        
+        reasoning_text = "\n".join(reasoning_snippets)
+        log_print(reasoning_text + "\n")
+
         # Simpan CSV hasil metrik
         metric_csv = os.path.join(args.output_dir, f"benchmark_{metric}.csv")
         ranked_df.to_csv(metric_csv, index=False)
@@ -162,6 +197,7 @@ def main():
         full_markdown_reports.append(f"## Metrik: {metric_label}")
         full_markdown_reports.append(ranked_df[display_cols].to_markdown(index=False))
         full_markdown_reports.append("\n" + narrative + "\n")
+        full_markdown_reports.append(reasoning_text + "\n")
 
     # Tulis laporan markdown lengkap
     md_report_path = os.path.join(args.output_dir, "benchmark_recommendation_report.md")
@@ -169,7 +205,7 @@ def main():
         f.write("\n\n".join(full_markdown_reports))
 
     log_print("==================================================================")
-    log_print(f"✅ Seluruh hasil benchmarking berhasil disimpan:")
+    log_print(f"[SUKSES] Seluruh hasil benchmarking berhasil disimpan:")
     log_print(f"   - Berkas CSV Ringkasan : {args.output_dir}/")
     log_print(f"   - Laporan Markdown     : {md_report_path}")
     log_print(f"   - Log Bukti Eksekusi   : {bench_log_path}")

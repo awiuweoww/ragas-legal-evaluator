@@ -21,7 +21,13 @@ import json
 import typing as t
 from dataclasses import dataclass
 
-from ragas.metrics._context_recall import LLMContextRecall
+from ragas.metrics._context_recall import (
+    LLMContextRecall,
+    QCA,
+    ContextRecallClassification,
+    ContextRecallClassifications,
+    ensembler,
+)
 from ragas.dataset_schema import BaseSample
 
 
@@ -65,16 +71,55 @@ class ContextRecallExtractor(LLMContextRecall):
                 "retrieved_contexts": getattr(sample, "retrieved_contexts", None),
             }
 
+        question = s.get("user_input", "") or s.get("question", "") or ""
+        contexts = s.get("retrieved_contexts", []) or s.get("contexts", []) or []
+        context_str = "\n".join(contexts) if isinstance(contexts, list) else str(contexts)
+        reference = s.get("reference", "") or s.get("ground_truth", "") or ""
+
+        qca_data = QCA(
+            question=question,
+            context=context_str,
+            answer=reference,
+        )
+
         try:
-            raw_res = await self._classify(s, callbacks=None)
+            classifications_list = await self.context_recall_prompt.generate_multiple(
+                data=qca_data,
+                llm=self.llm,
+                callbacks=None,
+            )
         except Exception:
             try:
-                raw_res = await self._classify(s, callbacks=None)
+                classifications_list = await self.context_recall_prompt.generate_multiple(
+                    data=qca_data,
+                    llm=self.llm,
+                    callbacks=None,
+                )
             except Exception as e2:
                 raise RuntimeError(f"Gagal mengekstrak context recall classifications: {e2}") from e2
 
-        self.classifications = raw_res
-        return self._compute_score(raw_res)
+        classification_dicts = []
+        for classification in classifications_list:
+            if hasattr(classification, "classifications"):
+                classification_dicts.append(
+                    [
+                        clasif.model_dump() if hasattr(clasif, "model_dump") else clasif.__dict__
+                        for clasif in classification.classifications
+                    ]
+                )
+
+        if classification_dicts:
+            ensembled_clasif = ensembler.from_discrete(classification_dicts, "attributed")
+            items = [ContextRecallClassification(**clasif) for clasif in ensembled_clasif]
+            score = self._compute_score(items)
+            self.classifications = [
+                c.model_dump() if hasattr(c, "model_dump") else c.__dict__ for c in items
+            ]
+        else:
+            score = 0.0
+            self.classifications = []
+
+        return float(score)
 
     def get_last_results(self) -> dict:
         """Mengembalikan klasifikasi atribusi dari evaluasi terakhir."""
@@ -89,14 +134,11 @@ class ContextRecallExtractor(LLMContextRecall):
         classifications = results.get("classifications") or []
         flat = []
         if isinstance(classifications, list):
-            for run in classifications:
-                if isinstance(run, list):
-                    for item in run:
-                        flat.append(item if isinstance(item, dict) else item.__dict__)
-                elif isinstance(run, dict):
-                    flat.append(run)
-                elif hasattr(run, "__dict__"):
-                    flat.append(run.__dict__)
+            for item in classifications:
+                if isinstance(item, dict):
+                    flat.append(item)
+                elif hasattr(item, "__dict__"):
+                    flat.append(item.__dict__)
 
         explanation = " | ".join(
             f"[{'OK' if it.get('attributed') else 'FAIL'}] {it.get('statement')}: {it.get('reason')}"

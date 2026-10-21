@@ -21,8 +21,13 @@ import json
 import typing as t
 from dataclasses import dataclass
 
-from ragas.metrics._answer_correctness import AnswerCorrectness
-from ragas.dataset_schema import BaseSample
+import numpy as np
+from ragas.metrics._answer_correctness import (
+    AnswerCorrectness,
+    QuestionAnswerGroundTruth,
+    AnswerSimilarity,
+)
+from ragas.dataset_schema import BaseSample, SingleTurnSample
 
 
 @dataclass
@@ -68,14 +73,69 @@ class AnswerCorrectnessExtractor(AnswerCorrectness):
                 "reference": getattr(sample, "reference", None),
             }
 
-        score = await super()._ascore(s)
+        question = s.get("user_input", "") or s.get("question", "") or ""
+        response = s.get("response", "") or s.get("answer", "") or ""
+        reference = s.get("reference", "") or s.get("ground_truth", "") or ""
+
+        # Inisialisasi semantic similarity jika belum
+        if self.answer_similarity is None and self.weights[1] != 0:
+            if self.embeddings is not None:
+                self.answer_similarity = AnswerSimilarity(embeddings=self.embeddings)
+
+        # 1. Ekstraksi simplified statements dari response dan reference
+        statements: t.Dict[str, t.List[str]] = {}
+        for item_key, text in [("response", response), ("reference", reference)]:
+            try:
+                stmts_out = await self._create_simplified_statements(question, text, callbacks=None)
+                statements[item_key] = (
+                    stmts_out.statements if hasattr(stmts_out, "statements") else (stmts_out or [])
+                )
+            except Exception:
+                statements[item_key] = []
+
+        # 2. Klasifikasi TP, FP, FN
+        answers_obj = None
+        f1_score = 0.0
+        if statements.get("response") or statements.get("reference"):
+            try:
+                answers_obj = await self.correctness_prompt.generate(
+                    llm=self.llm,
+                    data=QuestionAnswerGroundTruth(
+                        question=question,
+                        answer=statements.get("response", []),
+                        ground_truth=statements.get("reference", []),
+                    ),
+                    callbacks=None,
+                )
+                if answers_obj is not None:
+                    f1_score = float(self._compute_statement_presence(answers_obj))
+            except Exception:
+                f1_score = 0.0
+        else:
+            f1_score = 1.0
+
+        # 3. Kesamaan semantik (Embeddings)
+        similarity_score = 0.0
+        if self.weights[1] != 0 and self.answer_similarity is not None and response and reference:
+            try:
+                row_data = {"reference": reference, "response": response}
+                sim_res = await self.answer_similarity._ascore(row_data, callbacks=None)
+                if isinstance(sim_res, (np.ndarray, list)):
+                    sim_res = float(sim_res[0])
+                similarity_score = float(sim_res) if sim_res is not None and not np.isnan(sim_res) else 0.0
+            except Exception as e:
+                similarity_score = 0.0
+
+        # 4. Harmonisasi skor akhir
+        final_score = float(np.average([f1_score, similarity_score], weights=self.weights))
+
         self.last_results = {
-            "score": score,
-            "answers": getattr(self, "answers", None),
-            "similarity_score": getattr(self, "similarity_score", None),
-            "f1_score": getattr(self, "f1_score", None),
+            "score": final_score,
+            "answers": answers_obj,
+            "similarity_score": similarity_score,
+            "f1_score": f1_score,
         }
-        return score
+        return final_score
 
     def get_last_results(self) -> dict:
         """Mengembalikan rincian pembobotan faktual dan kesamaan semantik."""

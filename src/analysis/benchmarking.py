@@ -152,7 +152,7 @@ def rank_models_and_generate_reasons(
     best_model = best_row["candidate"]
 
     narrative = []
-    narrative.append(f"### 🏆 Kesimpulan Model Evaluator Terbaik: `{best_model}`")
+    narrative.append(f"### [REKOMENDASI] Kesimpulan Model Evaluator Terbaik: `{best_model}`")
     narrative.append(
         f"Berdasarkan pengujian komparatif dengan model referensi **`{reference_model}`**, "
         f"model **`{best_model}`** meraih peringkat tertinggi dengan **Composite Alignment Score {best_row['composite_score']}/100**."

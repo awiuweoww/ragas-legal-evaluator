@@ -33,6 +33,7 @@ from src.metrics.faithfulness import FaithfulnessExtractor
 from src.metrics.context_recall import ContextRecallExtractor
 from src.metrics.answer_correctness import AnswerCorrectnessExtractor
 from src.evaluators.llm_factory import build_evaluator_llm, build_evaluator_embeddings
+from src.utils.logger import format_sample_evaluation, AnsiColor
 
 OUTPUT_COLUMNS = [
     "query_id",
@@ -264,14 +265,14 @@ class EvaluationRunner:
                 all_results.append(res)
                 item_duration = time.time() - item_start
 
-                # Log rincian per baris ke file log
-                self.logger.info(
-                    f"[{idx+1}/{len(pending)}] Query '{res['query_id']}': "
-                    f"F={res.get('faithfulness_score')} | "
-                    f"CR={res.get('context_recall_score')} | "
-                    f"AC={res.get('answer_correctness_score')} "
-                    f"({item_duration:.2f}s)"
+                # Log rincian per baris ke file log dan terminal dengan output reasoning
+                sample_log_block = format_sample_evaluation(
+                    idx=idx + 1,
+                    total=len(pending),
+                    res=res,
+                    duration=item_duration,
                 )
+                self.logger.info("\n" + sample_log_block)
 
         end_time = time.time()
         total_duration = end_time - start_time
@@ -309,14 +310,15 @@ class EvaluationRunner:
         with open(meta_json_path, "w", encoding="utf-8") as jf:
             json.dump(meta_info, jf, indent=2, ensure_ascii=False)
 
-        self.logger.info("=" * 60)
-        self.logger.info("RINGKASAN EKSEKUSI SELESAI:")
+        c = AnsiColor
+        self.logger.info(f"{c.CYAN}{'=' * 75}{c.RESET}")
+        self.logger.info(f"{c.BOLD}{c.BRIGHT_GREEN}[RINGKASAN EKSEKUSI SELESAI]{c.RESET}")
         self.logger.info(f"Output CSV      : {output_csv_path}")
         self.logger.info(f"Metadata Bukti  : {meta_json_path}")
         self.logger.info(f"Durasi Total    : {total_duration:.2f} detik")
         self.logger.info(f"Rata-rata Skor  : {meta_info['summary_scores']}")
-        self.logger.info("=" * 60)
+        self.logger.info(f"{c.CYAN}{'=' * 75}{c.RESET}")
 
-        print(f"\n✅ Evaluasi selesai!")
+        print(f"\n[SUKSES] Evaluasi selesai!")
         print(f"   - File Hasil    : {output_csv_path}")
         print(f"   - Metadata JSON : {meta_json_path}")

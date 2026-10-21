@@ -44,44 +44,7 @@ while True:
 load_dotenv(os.path.join(ROOT_DIR, ".env"))
 
 from src.evaluators.runner import EvaluationRunner
-
-
-def setup_logger(model_name: str, custom_log_path: str = None) -> t.Tuple[logging.Logger, str]:
-    """
-    Menyiapkan logger otomatis yang menulis ke console dan berkas log bukti eksperimen.
-    """
-    logs_dir = os.path.join(ROOT_DIR, "logs")
-    os.makedirs(logs_dir, exist_ok=True)
-
-    if not custom_log_path:
-        sanitized_model = model_name.replace(":", "_").replace("/", "_")
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        log_file = os.path.join(logs_dir, f"eval_{sanitized_model}_{timestamp}.log")
-    else:
-        log_file = custom_log_path
-        os.makedirs(os.path.dirname(os.path.abspath(log_file)), exist_ok=True)
-
-    logger = logging.getLogger(f"eval_{model_name}")
-    logger.setLevel(logging.INFO)
-    logger.handlers = []
-
-    # File handler
-    file_handler = logging.FileHandler(log_file, encoding="utf-8")
-    file_handler.setLevel(logging.INFO)
-    file_formatter = logging.Formatter(
-        "[%(asctime)s] [%(levelname)s] %(message)s", datefmt="%Y-%m-%d %H:%M:%S"
-    )
-    file_handler.setFormatter(file_formatter)
-    logger.addHandler(file_handler)
-
-    # Stream handler (console)
-    console_handler = logging.StreamHandler(sys.stdout)
-    console_handler.setLevel(logging.INFO)
-    console_formatter = logging.Formatter("[%(asctime)s] %(message)s", datefmt="%H:%M:%S")
-    console_handler.setFormatter(console_formatter)
-    logger.addHandler(console_handler)
-
-    return logger, log_file
+from src.utils.logger import setup_logger, AnsiColor
 
 
 def detect_columns(fieldnames: list) -> dict:
@@ -151,15 +114,16 @@ def main():
     metrics = [m.strip() for m in args.metrics.split(",") if m.strip()]
     samples = load_dataset(args.input)
 
-    logger.info("==================================================================")
-    logger.info("🚀 MEMULAI RUN EVALUASI RAGAS (TUGAS 2b)")
+    c = AnsiColor
+    logger.info(f"{c.CYAN}{'=' * 75}{c.RESET}")
+    logger.info(f"{c.BOLD}{c.BRIGHT_CYAN}[START] MEMULAI RUN EVALUASI RAGAS (TUGAS 2b){c.RESET}")
     logger.info(f"Tanggal & Waktu: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     logger.info(f"Input Dataset  : {args.input} ({len(samples)} baris)")
-    logger.info(f"Evaluator LLM  : {args.model} (Backend: {args.backend})")
+    logger.info(f"Evaluator LLM  : {c.BOLD}{args.model}{c.RESET} (Backend: {args.backend})")
     logger.info(f"Metrik Aktif   : {metrics}")
     logger.info(f"Output File    : {args.output}")
     logger.info(f"Berkas Log     : {log_file_path}")
-    logger.info("==================================================================")
+    logger.info(f"{c.CYAN}{'=' * 75}{c.RESET}")
 
     runner = EvaluationRunner(
         backend=args.backend,
